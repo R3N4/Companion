@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Companion</string>
+    <string name="title_activity_main">Companion</string>
+
+    <string name="main_recordOn">Start Recording</string>
+    <string name="main_recordOff">Stop Recording</string>
+</resources>
