@@ -78,7 +78,7 @@ public class Collector extends Service implements SensorEventListener {
             public void onLocationChanged(Location location) {
                 //Do Stuff
                 try{
-                    String data = location.getTime() + ";" + location.getLatitude() + ";" + location.getLongitude() + ";";
+                    String data = location.getTime() + "," + location.getLatitude() + "," + location.getLongitude() + ",";
                     locationWriter.println(data);
                 } catch (Exception e){
                     e.printStackTrace();
@@ -140,7 +140,7 @@ public class Collector extends Service implements SensorEventListener {
             case Sensor.TYPE_ACCELEROMETER:
                 //System.out.println(sensorEvent.timestamp + " :: " + sensorEvent.values[0] + "|" + sensorEvent.values[1] + "|" + sensorEvent.values[2]);
                 try{
-                    String data = sensorEvent.timestamp + ";" + sensorEvent.values[0] + ";" + sensorEvent.values[1] + ";" + sensorEvent.values[2] + ";";
+                    String data = sensorEvent.timestamp + "," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + ",";
                     //System.out.println("Error : " + accelWriter.checkError());
                     accelWriter.println(data);
                 } catch (Exception e){
@@ -152,7 +152,7 @@ public class Collector extends Service implements SensorEventListener {
 
             case Sensor.TYPE_GYROSCOPE:
                 try{
-                    String data = sensorEvent.timestamp + ";" + sensorEvent.values[0] + ";" + sensorEvent.values[1] + ";" + sensorEvent.values[2] + ";";
+                    String data = sensorEvent.timestamp + "," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + ",";
                     //System.out.println("Error : " + gyroWriter.checkError());
                     gyroWriter.println(data);
                 } catch (Exception e){
@@ -164,7 +164,7 @@ public class Collector extends Service implements SensorEventListener {
 
             case Sensor.TYPE_ORIENTATION:
                 try{
-                    String data = sensorEvent.timestamp + ";" + sensorEvent.values[0] + ";" + sensorEvent.values[1] + ";" + sensorEvent.values[2] + ";";
+                    String data = sensorEvent.timestamp + "," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + ",";
                     //System.out.println("Error : " + orienWriter.checkError());
                     orienWriter.println(data);
                 } catch (Exception e){
@@ -176,7 +176,7 @@ public class Collector extends Service implements SensorEventListener {
 
             case Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR:
                 try{
-                    String data = sensorEvent.timestamp + ";" + sensorEvent.values[0] + ";" + sensorEvent.values[1] + ";" + sensorEvent.values[2] + ";";
+                    String data = sensorEvent.timestamp + "," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + ",";
                     //System.out.println("Error : " + magneticWriter.checkError());
                     magneticWriter.println(data);
                 } catch (Exception e){
@@ -234,7 +234,7 @@ public class Collector extends Service implements SensorEventListener {
     }
 
     private void WriteHeader(PrintWriter writer, String[] data){
-        writer.println(data[0]+";"+data[1]+";"+data[2]+";"+data[3]+";"); //Timestamp;X;Y;Z;
+        writer.println(data[0]+","+data[1]+","+data[2]+","+data[3]+","); //Timestamp;X;Y;Z;
     }
 
 
