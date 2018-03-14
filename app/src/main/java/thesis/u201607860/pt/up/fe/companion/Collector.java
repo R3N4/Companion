@@ -1,20 +1,33 @@
 package thesis.u201607860.pt.up.fe.companion;
 
+import android.Manifest;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.os.Bundle;
 import android.os.IBinder;
+import android.support.v4.content.ContextCompat;
 
 import java.io.FileOutputStream;
 import java.io.PrintWriter;
+import java.security.Permission;
+import java.util.List;
 
 public class Collector extends Service implements SensorEventListener {
 
+    private static final int TIME_BETWEEN_REQUESTS = 1000 * 15;
+
     private SensorManager _sensorManager;
+    private LocationManager _locationManager;
+    LocationListener _locationListener;
     private Sensor _accelerometer;
     private Sensor _gyroscope;
     private Sensor _orientation;
@@ -23,25 +36,18 @@ public class Collector extends Service implements SensorEventListener {
     private String _fileGyroscope = "gyroData";
     private String _fileOrientation = "orienData";
     private String _fileMagRot = "magneticData";
+    private String _fileLocation = "locationData";
     private FileOutputStream _fileStreamAccel;
     private FileOutputStream _fileStreamGyro;
     private PrintWriter accelWriter;
     private PrintWriter gyroWriter;
     private PrintWriter orienWriter;
     private PrintWriter magneticWriter;
+    private PrintWriter locationWriter;
 
-    private PrintWriter InitiateWriter(String fileName, Long timestamp){
-        try {
-            return new PrintWriter(getApplicationContext().getExternalFilesDir(null)+"/"+fileName+".session"+timestamp+".csv", "UTF-8");
-        }catch (Exception e){
-            System.out.println(e.toString());
-        }
-        return null;
-    }
+    private Location _currentBestLocation;
 
-    private void WriteHeader(PrintWriter writer, String[] data){
-        writer.println(data[0]+";"+data[1]+";"+data[2]+";"+data[3]+";"); //Timestamp;X;Y;Z;
-    }
+
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -56,24 +62,49 @@ public class Collector extends Service implements SensorEventListener {
         System.out.println("Running");
 
         _sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        _locationManager= (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+
         _accelerometer = _sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         _gyroscope = _sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
         _orientation = _sensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION);
         _magnetic = _sensorManager.getDefaultSensor(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR);
 
-        _sensorManager.registerListener(this, _accelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+        /*for (Sensor sensor : _sensorManager.getSensorList(Sensor.TYPE_ALL)) {
+            System.out.println(sensor);
+        }*/
 
-        Long time = System.currentTimeMillis();
-        System.out.println(getApplicationContext().getExternalFilesDir(null)+"/"+".session"+time);
+        _locationListener = new LocationListener() {
+            @Override
+            public void onLocationChanged(Location location) {
+                //Do Stuff
+                try{
+                    String data = location.getTime() + ";" + location.getLatitude() + ";" + location.getLongitude() + ";";
+                    locationWriter.println(data);
+                } catch (Exception e){
+                    e.printStackTrace();
+                    System.out.println(e.toString());
+                }
+            }
 
-        accelWriter = InitiateWriter(_fileAccelerometer, time);
-        WriteHeader(accelWriter, new String[]{time.toString(), "x Acceleration", "y Acceleration", "z Acceleration"});
-        gyroWriter = InitiateWriter(_fileGyroscope, time);
-        WriteHeader(gyroWriter, new String[]{time.toString(), "Rotation Around x", "Rotation Around y", "Rotation Around z"});
-        orienWriter = InitiateWriter(_fileOrientation, time);
-        WriteHeader(orienWriter, new String[]{time.toString(), "Azimuth", "Pitch", "Roll"});
-        magneticWriter = InitiateWriter(_fileMagRot, time);
-        WriteHeader(magneticWriter, new String[]{time.toString(), "Rotation Along x", "Rotation Along y", "Rotation Along z"});
+            @Override
+            public void onStatusChanged(String s, int i, Bundle bundle) {
+            }
+
+            @Override
+            public void onProviderEnabled(String s) {
+            }
+
+            @Override
+            public void onProviderDisabled(String s) {
+            }
+        };
+        if(ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED){
+            _locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, TIME_BETWEEN_REQUESTS, 0, _locationListener);
+            _locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, TIME_BETWEEN_REQUESTS, 0, _locationListener);
+        }
+
+        RegisterListeners();
+        InitiateAllWriters();
 
         MainActivity.ChangeState();
         //MainActivity.Rename();
@@ -84,11 +115,13 @@ public class Collector extends Service implements SensorEventListener {
     @Override
     public void onDestroy(){
         _sensorManager.unregisterListener(this);
+        _locationManager.removeUpdates(_locationListener);
 
         accelWriter.close();
         gyroWriter.close();
         orienWriter.close();
         magneticWriter.close();
+        locationWriter.close();
 
         MainActivity.ChangeState();
         //MainActivity.Rename();
@@ -120,7 +153,6 @@ public class Collector extends Service implements SensorEventListener {
             case Sensor.TYPE_GYROSCOPE:
                 try{
                     String data = sensorEvent.timestamp + ";" + sensorEvent.values[0] + ";" + sensorEvent.values[1] + ";" + sensorEvent.values[2] + ";";
-                    System.out.println(sensorEvent.timestamp + " :: " + sensorEvent.values[0] + "|" + sensorEvent.values[1] + "|" + sensorEvent.values[2]);
                     //System.out.println("Error : " + gyroWriter.checkError());
                     gyroWriter.println(data);
                 } catch (Exception e){
@@ -163,5 +195,98 @@ public class Collector extends Service implements SensorEventListener {
     @Override
     public void onAccuracyChanged(Sensor sensor, int i) {
         // Do something here if sensor accuracy changes.
+    }
+
+
+    private void RegisterListeners(){
+        _sensorManager.registerListener(this, _accelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+        _sensorManager.registerListener(this, _gyroscope, SensorManager.SENSOR_DELAY_NORMAL);
+        _sensorManager.registerListener(this, _orientation, SensorManager.SENSOR_DELAY_NORMAL);
+        _sensorManager.registerListener(this, _magnetic, SensorManager.SENSOR_DELAY_NORMAL);
+
+
+    }
+
+    private void InitiateAllWriters(){
+        Long time = System.currentTimeMillis();
+        System.out.println(getApplicationContext().getExternalFilesDir(null)+"/"+".session"+time);
+
+        accelWriter = InitiateWriter(_fileAccelerometer, time);
+        WriteHeader(accelWriter, new String[]{"Timestamp", "x Acceleration", "y Acceleration", "z Acceleration"});
+        gyroWriter = InitiateWriter(_fileGyroscope, time);
+        WriteHeader(gyroWriter, new String[]{"Timestamp", "Rotation Around x", "Rotation Around y", "Rotation Around z"});
+        orienWriter = InitiateWriter(_fileOrientation, time);
+        WriteHeader(orienWriter, new String[]{"Timestamp", "Azimuth", "Pitch", "Roll"});
+        magneticWriter = InitiateWriter(_fileMagRot, time);
+        WriteHeader(magneticWriter, new String[]{"Timestamp", "Rotation Along x", "Rotation Along y", "Rotation Along z"});
+
+        locationWriter = InitiateWriter(_fileLocation, time);
+        WriteHeader(locationWriter, new String[]{"Timestamp", "Latitude", "Longitude", "N/A"});
+    }
+
+    private PrintWriter InitiateWriter(String fileName, Long timestamp){
+        try {
+            return new PrintWriter(getApplicationContext().getExternalFilesDir(null)+"/"+fileName+".session"+timestamp+".csv", "UTF-8");
+        }catch (Exception e){
+            System.out.println(e.toString());
+        }
+        return null;
+    }
+
+    private void WriteHeader(PrintWriter writer, String[] data){
+        writer.println(data[0]+";"+data[1]+";"+data[2]+";"+data[3]+";"); //Timestamp;X;Y;Z;
+    }
+
+
+
+    //https://developer.android.com/guide/topics/location/strategies.html
+    protected boolean isBetterLocation(Location location, Location currentBestLocation) {
+        if (currentBestLocation == null) {
+            // A new location is always better than no location
+            return true;
+        }
+
+        // Check whether the new location fix is newer or older
+        long timeDelta = location.getTime() - currentBestLocation.getTime();
+        boolean isSignificantlyNewer = timeDelta > TIME_BETWEEN_REQUESTS;
+        boolean isSignificantlyOlder = timeDelta < -TIME_BETWEEN_REQUESTS;
+        boolean isNewer = timeDelta > 0;
+
+        // If it's been more than two minutes since the current location, use the new location
+        // because the user has likely moved
+        if (isSignificantlyNewer) {
+            return true;
+            // If the new location is more than two minutes older, it must be worse
+        } else if (isSignificantlyOlder) {
+            return false;
+        }
+
+        // Check whether the new location fix is more or less accurate
+        int accuracyDelta = (int) (location.getAccuracy() - currentBestLocation.getAccuracy());
+        boolean isLessAccurate = accuracyDelta > 0;
+        boolean isMoreAccurate = accuracyDelta < 0;
+        boolean isSignificantlyLessAccurate = accuracyDelta > 200;
+
+        // Check if the old and new location are from the same provider
+        boolean isFromSameProvider = isSameProvider(location.getProvider(),
+                currentBestLocation.getProvider());
+
+        // Determine location quality using a combination of timeliness and accuracy
+        if (isMoreAccurate) {
+            return true;
+        } else if (isNewer && !isLessAccurate) {
+            return true;
+        } else if (isNewer && !isSignificantlyLessAccurate && isFromSameProvider) {
+            return true;
+        }
+        return false;
+    }
+
+    /** Checks whether two providers are the same */
+    private boolean isSameProvider(String provider1, String provider2) {
+        if (provider1 == null) {
+            return provider2 == null;
+        }
+        return provider1.equals(provider2);
     }
 }
