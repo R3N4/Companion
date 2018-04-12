@@ -15,6 +15,9 @@ import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.support.v4.content.ContextCompat;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.widget.TextView;
 
 import java.io.FileOutputStream;
 import java.io.PrintWriter;
@@ -37,13 +40,15 @@ public class Collector extends Service implements SensorEventListener {
     private String _fileOrientation = "orienData";
     private String _fileMagRot = "magneticData";
     private String _fileLocation = "locationData";
-    private FileOutputStream _fileStreamAccel;
-    private FileOutputStream _fileStreamGyro;
     private PrintWriter accelWriter;
     private PrintWriter gyroWriter;
     private PrintWriter orienWriter;
     private PrintWriter magneticWriter;
     private PrintWriter locationWriter;
+
+    //Compass
+    float[] mGravity;
+    float[] mGeomagnetic;
 
     private Location _currentBestLocation;
 
@@ -67,18 +72,18 @@ public class Collector extends Service implements SensorEventListener {
         _accelerometer = _sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         _gyroscope = _sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
         _orientation = _sensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION);
-        _magnetic = _sensorManager.getDefaultSensor(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR);
+        _magnetic = _sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
 
-        /*for (Sensor sensor : _sensorManager.getSensorList(Sensor.TYPE_ALL)) {
+        for (Sensor sensor : _sensorManager.getSensorList(Sensor.TYPE_ALL)) {
             System.out.println(sensor);
-        }*/
+        }
 
         _locationListener = new LocationListener() {
             @Override
             public void onLocationChanged(Location location) {
                 //Do Stuff
                 try{
-                    String data = location.getTime() + "," + location.getLatitude() + "," + location.getLongitude() + ",";
+                    String data = System.currentTimeMillis() + "," + location.getLatitude() + "," + location.getLongitude() + ",";
                     locationWriter.println(data);
                 } catch (Exception e){
                     e.printStackTrace();
@@ -138,10 +143,10 @@ public class Collector extends Service implements SensorEventListener {
         switch (sensorEvent.sensor.getType()){
 
             case Sensor.TYPE_ACCELEROMETER:
-                //System.out.println(sensorEvent.timestamp + " :: " + sensorEvent.values[0] + "|" + sensorEvent.values[1] + "|" + sensorEvent.values[2]);
                 try{
-                    String data = sensorEvent.timestamp + "," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + ",";
-                    //System.out.println("Error : " + accelWriter.checkError());
+                    mGravity = sensorEvent.values;
+                    String data = System.currentTimeMillis() + "," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + ",";
+                    MainActivity.ShowAccelData(""+sensorEvent.values[0], ""+sensorEvent.values[1], ""+sensorEvent.values[2]);
                     accelWriter.println(data);
                 } catch (Exception e){
                     e.printStackTrace();
@@ -152,8 +157,9 @@ public class Collector extends Service implements SensorEventListener {
 
             case Sensor.TYPE_GYROSCOPE:
                 try{
-                    String data = sensorEvent.timestamp + "," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + ",";
+                    String data = System.currentTimeMillis() + "," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + ",";
                     //System.out.println("Error : " + gyroWriter.checkError());
+                    MainActivity.ShowGyroData(""+sensorEvent.values[0], ""+sensorEvent.values[1], ""+sensorEvent.values[2]);
                     gyroWriter.println(data);
                 } catch (Exception e){
                     e.printStackTrace();
@@ -164,7 +170,7 @@ public class Collector extends Service implements SensorEventListener {
 
             case Sensor.TYPE_ORIENTATION:
                 try{
-                    String data = sensorEvent.timestamp + "," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + ",";
+                    String data = System.currentTimeMillis() + "," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + ",";
                     //System.out.println("Error : " + orienWriter.checkError());
                     orienWriter.println(data);
                 } catch (Exception e){
@@ -174,21 +180,34 @@ public class Collector extends Service implements SensorEventListener {
                 }
                 break;
 
-            case Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR:
-                try{
-                    String data = sensorEvent.timestamp + "," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + ",";
+            case Sensor.TYPE_MAGNETIC_FIELD:
+                mGeomagnetic = sensorEvent.values;
+                /*try{
+                    String data = System.currentTimeMillis() + "," + sensorEvent.values[0] + "," + sensorEvent.values[1] + "," + sensorEvent.values[2] + ",";
                     //System.out.println("Error : " + magneticWriter.checkError());
                     magneticWriter.println(data);
                 } catch (Exception e){
                     e.printStackTrace();
 
                     System.out.println(e.toString());
-                }
+                }*/
                 break;
 
             default:
                 //Nothing to do
                 break;
+        }
+        if (mGravity != null && mGeomagnetic != null) {
+            float R[] = new float[9];
+            float I[] = new float[9];
+            boolean success = SensorManager.getRotationMatrix(R, I, mGravity, mGeomagnetic);
+            if (success) {
+                float orientation[] = new float[3];
+                SensorManager.getOrientation(R, orientation);
+                String data = System.currentTimeMillis() + "," + orientation[0]*360/(2*3.14159f) + "," + orientation[1] + "," + orientation[2] + ",";
+                MainActivity.ShowOrientationData(""+orientation[0]*360/(2*3.14159f));
+                magneticWriter.println(data);
+            }
         }
     }
 

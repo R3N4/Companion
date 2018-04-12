@@ -4,4 +4,8 @@
 
     <string name="main_recordOn">Start Recording</string>
     <string name="main_recordOff">Stop Recording</string>
+
+    <string name="label_accel">Accelerometer</string>
+    <string name="label_gyro">Gyroscope</string>
+    <string name="label_orientation">Orientation</string>
 </resources>
